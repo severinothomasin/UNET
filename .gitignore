@@ -1,1 +1,3 @@
 __pycache__
+data/train/images/*
+data/train/masks/*
