@@ -12,7 +12,7 @@ class Dataset(T_Dataset):
 
     def __init__(self, root_dir):
         """
-            Constrcutor for the Dataset Class
+            Constructor for the Dataset Class
 
             Returns: 
                 None
@@ -37,6 +37,8 @@ class Dataset(T_Dataset):
             Overridden method from inheritted class to support indexing of dataset such that datset[I] can be used
             to get Ith sample.
 
+            Parameters:
+                index(int): Index of the image
             Returns: 
                 sample(dict): Contains the index, image, mask
                     'index': Index of the image
@@ -71,9 +73,12 @@ class Dataset(T_Dataset):
             Each transformation has a probability of 0.5
             If rotate transformation is chosen rotation is randomized between 15 and 75 deg
 
-            Returns:
+            Parameters:
                 'image': Contains the image torch.Tensor
                 'mask': Contains the mask torch.Tensor
+            Returns:
+                'image': Contains the transformed image torch.Tensor
+                'mask': Contains the transformed mask torch.Tensor
         """
 
         choice_list = list(self.transform)
@@ -100,7 +105,10 @@ class Dataset(T_Dataset):
 
     def __len__(self):
         
-        total_files = len(os.listdir(self.root_dir))
+        total_images = len(os.listdir(os.path.join(self.root_dir,'images')))
+        total_masks = len(os.listdir(os.path.join(self.root_dir,'masks')))
+
+        total_files = total_images + total_masks
 
         assert (total_files % 2 == 0), 'Part of dataset is missing!\nNumber of images and masks are not same.'
         return total_files // 2

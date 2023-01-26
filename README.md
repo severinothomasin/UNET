@@ -58,6 +58,7 @@ This section should list any major frameworks/libraries used to bootstrap your p
 * torchvision
 * pytorch-cuda=11.7
 * pillow
+* pickle
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
