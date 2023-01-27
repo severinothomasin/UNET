@@ -47,11 +47,16 @@ class Dataset(T_Dataset):
 
         """
 
-        image_name = os.path.join(self.root_dir.join('/images'), str(index).join('.jpg'))
-        mask_name = os.path.join(self.root_dir.join('/masks'), str(index).join('.jpg'))
+        print(self.root_dir)
 
-        image = P_Image.open(image_name)
-        mask = P_Image.open(mask_name)
+        image_name = self.root_dir + '/images/' + str(index) + '.jpg'
+        mask_name = self.root_dir + '/masks/' + str(index) + '.jpg'
+
+        print(image_name)
+        print(mask_name)
+
+        image = P_Image.open(image_name).convert("L")
+        mask = P_Image.open(mask_name).convert("L")
         
         image, mask = self.__random_transform__(image, mask)
 
