@@ -19,11 +19,12 @@ EPOCHS = 100
 FILTER_LIST = [16,32,64,128,256]
 LOAD_MODEL = True
 MODEL_NAME = f"UNet-{FILTER_LIST}.pt"
-TRAIN = False
+TRAIN = True
 SAVE_MODEL = False
+NEW_FILE_INDEX = False
 # --------------------------------------
 
-def get_ids(length, new=False):
+def get_ids(length, new):
     """
         Read out indices of training data and save it as a file so it can quickly be restored later on.
 
@@ -58,58 +59,60 @@ def get_ids(length, new=False):
     
     return train_ids, test_ids
 
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 print(f'Device Used: ({device}) {torch.cuda.get_device_name(torch.cuda.current_device())}')
 print(f'Pytorch Version: {torch.__version__}')
 
 dataset = sevtho.data.Dataset(DATASET_PATH)
-train_ids, test_ids = get_ids(len(dataset))
+train_ids, test_ids = get_ids(len(dataset), NEW_FILE_INDEX)
 train_sampler, test_sampler = T_SubsetRandomSampler(train_ids), T_SubsetRandomSampler(test_ids)
-print(test_ids)
+
 train_loader = T_DataLoader(dataset, BATCH_SIZE, sampler=train_sampler)
 test_loader = T_DataLoader(dataset, 1, sampler=test_sampler)
 
-unet_model = None
-unet_classifier = None
+print(vars(train_loader.sampler))
+print(vars(test_loader.sampler))
 
-if not LOAD_MODEL:
-    unet_model = sevtho.model.DynamicUNet(FILTER_LIST).to(device)
-    print(unet_model.summary())
-    unet_classifier = sevtho.classifier.Classifier(unet_model, device)
-else:
-    unet_model = sevtho.model.DynamicUNet(FILTER_LIST)
-    unet_classifier = sevtho.classifier.Classifier(unet_model,device)
-    unet_classifier.restore_model(os.path.join('saved_models',MODEL_NAME))
-    print('Saved model loaded')
-    print(unet_model.summary())
-
-
+#unet_model = None
+#unet_classifier = None
+#
+#if not LOAD_MODEL:
+#    unet_model = sevtho.model.DynamicUNet(FILTER_LIST).to(device)
+#    print(unet_model.summary())
+#    unet_classifier = sevtho.classifier.Classifier(unet_model, device)
+#else:
+#    unet_model = sevtho.model.DynamicUNet(FILTER_LIST)
+#    unet_classifier = sevtho.classifier.Classifier(unet_model,device)
+#    unet_classifier.restore_model(os.path.join('saved_models',MODEL_NAME))
+#    print('Saved model loaded')
+#    print(unet_model.summary())
+#
+#
 # Training process
-if TRAIN:
-    unet_model.train()
-    path = os.path.join('saved_models',MODEL_NAME) if SAVE_MODEL else None
-    unet_train_history = unet_classifier.train(EPOCHS,train_loader,mini_batch=100,save_best=path)
-    print(f'Training Finished after {EPOCHS} epoches')
-
+#if TRAIN:
+#    unet_model.train()
+#    path = os.path.join('saved_models',MODEL_NAME) if SAVE_MODEL else None
+#    unet_train_history = unet_classifier.train(EPOCHS,train_loader,mini_batch=100,save_best=path)
+#    print(f'Training Finished after {EPOCHS} epoches')
+#
 # Testing process on test data.
-unet_model.eval()
-unet_score = unet_classifier.test(test_loader)
-print(f'\n\nDice Score {unet_score}')
+#unet_model.eval()
+#unet_score = unet_classifier.test(test_loader)
+#print(f'\n\nDice Score {unet_score}')
 # Dice Score 0.7446110107881675
-
+#
 #save_plot = os.path.join('images',f'{MODEL_NAME}-loss_graph.png')
 #sevtho.plot.loss_graph(unet_train_history['train_loss'],save_plot)
-
-for i in range(0,20):
-    # Run this cell repeatedly to see some results.
-    image_index = test_ids[i]
-    sample = dataset[image_index]
-    image, mask, output, d_score = unet_classifier.predict(sample,0.5)
-    title = f'Name: {image_index}.png   Dice Score: {d_score:.5f}'
-    # save_path = os.path.join('images',f'{d_score:.5f}_{image_index}.png')
-    sevtho.plot.result(image,mask,output,title,save_path=None)
-    i += 1
-    if i >= len(test_ids):
-        i = 0 
+#
+#for i in range(0,20):
+#    # Run this cell repeatedly to see some results.
+#    image_index = test_ids[i]
+#    sample = dataset[image_index]
+#    image, mask, output, d_score = unet_classifier.predict(sample,0.5)
+#    title = f'Name: {image_index}.png   Dice Score: {d_score:.5f}'
+#    # save_path = os.path.join('images',f'{d_score:.5f}_{image_index}.png')
+#    sevtho.plot.result(image,mask,output,title,save_path=None)
+#    i += 1
+#    if i >= len(test_ids):
+#        i = 0 
