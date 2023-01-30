@@ -1,6 +1,7 @@
-import torch as T
-import torch.optim as T_optim
-from torch.autograd import Variable 
+import torch
+import bts.loss as loss
+import torch.optim as optim
+from torch.autograd import Variable
 
 from tensorboardX import SummaryWriter
 
@@ -9,10 +10,9 @@ import numpy as np
 from datetime import datetime
 from time import time
 
-import sevtho.loss
 
-class Classifier():
-    """ Returns a Classifier class object which represents our 
+class BrainTumorClassifier():
+    """ Returns a BrainTumorClassifier class object which represents our 
     optimizer for our network.
     """
 
@@ -21,14 +21,14 @@ class Classifier():
         Parameters:
             model(DynamicUNet): UNet model to be trained.
             device(torch.device): Device currently used for all computations.
+
         Returns: 
             None
         """
         self.model = model
         self.device = device
-        self.criterion = sevtho.loss.BCEDiceLoss(self.device).to(device)
-        self.log_path = datetime.now().strftime("%I-%M-%S_%p_on_%B_%d,_%Y")    
-
+        self.criterion = loss.BCEDiceLoss(self.device).to(device)
+        self.log_path = datetime.now().strftime("%I-%M-%S_%p_on_%B_%d,_%Y")
 
     def train(self, epochs, trainloader, mini_batch=None, learning_rate=0.001, save_best=None, plot_image=None):
         """ Train the model using Adam Optimizer.
@@ -49,6 +49,7 @@ class Classifier():
                           Visualization of model training progress.If None
                           then nothing will be done.
                           Default: None
+
         Returns:
             history(dict): Contains information about training session.
                             'train_loss': List of loss at every epoch
@@ -60,9 +61,9 @@ class Classifier():
         # For save best feature. Initial loss taken a very high value.
         last_loss = 1000
         # Optimizer used for training process. Adam Optimizer.
-        self.optimizer = T_optim.Adam(self.model.parameters(), lr=learning_rate)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
         # Reducing LR on plateau feature to improve training.
-        self.scheduler = T_optim.lr_scheduler.ReduceLROnPlateau(
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer, factor=0.85, patience=2, verbose=True)
         print('Starting Training Process')
         # Epoch Loop
@@ -109,7 +110,7 @@ class Classifier():
         Returns:
             None
         """
-        T.save(self.model.state_dict(), path)
+        torch.save(self.model.state_dict(), path)
 
     def restore_model(self, path):
         """ Loads the saved model and restores it to the "model" object.
@@ -122,9 +123,9 @@ class Classifier():
             None
         """
         if self.device == 'cpu':
-            self.model.load_state_dict(T.load(path, map_location=self.device))
+            self.model.load_state_dict(torch.load(path, map_location=device))
         else:
-            self.model.load_state_dict(T.load(path))
+            self.model.load_state_dict(torch.load(path))
             self.model.to(self.device)
 
     def test(self, testloader, threshold=0.5):
@@ -135,6 +136,7 @@ class Classifier():
             threshold(float): Threshold value after which value will be part 
                               of output.
                               Default: 0.5
+
         Returns:
             mean_val_score(float): The mean Sørensen–Dice Coefficient for the 
                                     whole test dataset.
@@ -182,9 +184,9 @@ class Classifier():
             mean_val_score += self._dice_coefficient(mask_pred, mask)
 
         # Calculating the mean score for the whole test dataset.
-        if data_len > 0:
-            mean_val_score = mean_val_score / data_len
-
+        print(data_len)
+        print(mean_val_score)
+        #mean_val_score = mean_val_score / data_len
         # Putting the model back to training mode.
         self.model.train()
         return mean_val_score
@@ -198,6 +200,7 @@ class Classifier():
                         'mask' : Contains the mask image torch.Tensor.
             threshold(float): Threshold value after which value will be part of output.
                                 Default: 0.5
+
         Returns:
             image(numpy.ndarray): 512x512 Original brain scanned image.
             mask(numpy.ndarray): 512x512 Original mask of scanned image.
@@ -209,10 +212,10 @@ class Classifier():
         image = data['image'].numpy()
         mask = data['mask'].numpy()
 
-        image_tensor = T.Tensor(data['image'])
+        image_tensor = torch.Tensor(data['image'])
         image_tensor = image_tensor.view((-1, 1, 512, 512)).to(self.device)
         output = self.model(image_tensor).detach().cpu()
-        #output = (output > threshold)
+        output = (output > threshold)
         output = output.numpy()
 
         image = np.resize(image, (512, 512))
@@ -227,6 +230,7 @@ class Classifier():
             trainloader(torch.utils.data.Dataloader): Training data
                         loader for the optimizer.
             mini_batch(int): Used to print logs for epoch batches.
+
         Returns:
             epoch_loss(float): Loss calculated for each epoch.
         """
@@ -279,7 +283,7 @@ class Classifier():
         for data in sample:
             inputs.append(data['image'])
         # Inputs stacked together in a single batch
-        inputs = T.stack(inputs).to(self.device)
+        inputs = torch.stack(inputs).to(self.device)
         # Outputs gained from model after passing input.
         outputs = self.model(inputs).detach().cpu()
         # Adding the outputs to Tensorboard for visualization.
@@ -297,6 +301,7 @@ class Classifier():
                                     Shape - (Channel,Height,Width)
             target(numpy.ndarray): Actual required single output for the network
                                     Shape - (Channel,Height,Width)
+
         Returns:
             coefficient(float): Dice coefficient for the input sample.
                                         1 represents high similarity and
