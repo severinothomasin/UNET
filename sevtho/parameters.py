@@ -18,9 +18,9 @@ TEST_SPLIT = 0.2
 # Batch size for training. Limited by GPU memory
 BATCH_SIZE = 1
 # Dataset folder used
-DATASET_NAME = 'm1E8'
+DATASET_NAME = 'brain_tumors'
 # Training Epochs
-EPOCHS = 100
+EPOCHS = 1
 # Filters used in UNet Model
 FILTER_LIST = [16,32,64,128,256]
 # Flag to train the model
@@ -32,6 +32,6 @@ SAVE_MODEL = False
 # Flag to save the file index
 NEW_INDEX = True
 # Apply Model to fresh Dataset
-APPLY_DATASET = True
+APPLY_DATASET = False
 # Model Name
-MODEL_NAME = 'm1E8'
+MODEL_NAME = 'brain_tumors'

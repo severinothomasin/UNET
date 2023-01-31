@@ -1,9 +1,8 @@
 import torch
 import sevtho.loss as loss
+import sevtho.parameters as param
 import torch.optim as optim
 from torch.autograd import Variable
-
-from tensorboardX import SummaryWriter
 
 import numpy as np
 
@@ -54,8 +53,6 @@ class BrainTumorClassifier():
             history(dict): Contains information about training session.
                             'train_loss': List of loss at every epoch
         """
-        # Tensorboard Writter
-        self.tb_writer = SummaryWriter(log_dir=f'logs/{self.log_path}')
         # Training session history data.
         history = {'train_loss': list()}
         # For save best feature. Initial loss taken a very high value.
@@ -73,18 +70,8 @@ class BrainTumorClassifier():
             epoch_loss = self._train_epoch(trainloader, mini_batch)
             # Collecting all epoch loss values for future visualization.
             history['train_loss'].append(epoch_loss)
-            # Logging to Tensorboard
-            self.tb_writer.add_scalar('Train Loss', epoch_loss, epoch)
-            self.tb_writer.add_scalar(
-                'Learning Rate', self.optimizer.param_groups[0]['lr'], epoch)
             # Reduce LR On Plateau
             self.scheduler.step(epoch_loss)
-
-            # Plotting some sample output on TensorBoard for visualization purpose.
-            if plot_image:
-                self.model.eval()
-                self._plot_image(epoch, plot_image)
-                self.model.train()
 
             time_taken = time()-start_time
             # Training Logs printed.
@@ -208,22 +195,39 @@ class BrainTumorClassifier():
             score(float): Sørensen–Dice Coefficient for mask and output.
                             Calculates how similar are the two images.
         """
-        self.model.eval()
-        image = data['image'].numpy()
-        #mask = data['mask'].numpy()
+        if param.APPLY_DATASET:
 
-        image_tensor = torch.Tensor(data['image'])
-        image_tensor = image_tensor.view((-1, 1, 512, 512)).to(self.device)
-        output = self.model(image_tensor).detach().cpu()
-        output = (output > threshold)
-        output = output.numpy()
+            self.model.eval()
+            image = data['image'].numpy()
 
-        image = np.resize(image, (512, 512))
-        #mask = np.resize(mask, (512, 512))
-        output = np.resize(output, (512, 512))
-        #score = self._dice_coefficient(output, mask)
-        #return image, mask, output, score
-        return image, output
+            image_tensor = torch.Tensor(data['image'])
+            image_tensor = image_tensor.view((-1, 1, 512, 512)).to(self.device)
+            output = self.model(image_tensor).detach().cpu()
+            output = (output > threshold)
+            output = output.numpy()
+
+            image = np.resize(image, (512, 512))
+            output = np.resize(output, (512, 512))
+
+            return image, output
+        
+        else:
+
+            self.model.eval()
+            image = data['image'].numpy()
+            mask = data['mask'].numpy()
+
+            image_tensor = torch.Tensor(data['image'])
+            image_tensor = image_tensor.view((-1, 1, 512, 512)).to(self.device)
+            output = self.model(image_tensor).detach().cpu()
+            output = (output > threshold)
+            output = output.numpy()
+
+            image = np.resize(image, (512, 512))
+            mask = np.resize(mask, (512, 512))
+            output = np.resize(output, (512, 512))
+            score = self._dice_coefficient(output, mask)
+            return image, mask, output, score
 
     def _train_epoch(self, trainloader, mini_batch):
         """ Training each epoch.
@@ -267,32 +271,6 @@ class BrainTumorClassifier():
 
         epoch_loss = epoch_loss/(batch_iteration*trainloader.batch_size)
         return epoch_loss
-
-    def _plot_image(self, epoch, sample):
-        """
-        Parameters:
-            epoch(int): Running epoch number used to plot on Tensorboard
-            sample(list): Sample inputs used to visualize the progress of
-                          training over epochs.
-        Returns:
-            None
-        """
-        inputs = list()
-        mask = list()
-
-        # Inputs seperated.
-        for data in sample:
-            inputs.append(data['image'])
-        # Inputs stacked together in a single batch
-        inputs = torch.stack(inputs).to(self.device)
-        # Outputs gained from model after passing input.
-        outputs = self.model(inputs).detach().cpu()
-        # Adding the outputs to Tensorboard for visualization.
-        for index in range(len(sample)):
-            self.tb_writer.add_image(
-                str(sample[index]['index']), outputs[index], epoch)
-        # Deleting the samples from GPU memory to save space.
-        del inputs
 
     def _dice_coefficient(self, predicted, target):
         """Calculates the Sørensen–Dice Coefficient for a

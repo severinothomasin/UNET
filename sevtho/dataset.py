@@ -17,6 +17,7 @@ class Dataset():
 
         self.dataset_name = parameters.DATASET_NAME
         self.model_name = parameters.MODEL_NAME
+        self.dataset_path = os.path.join('dataset', parameters.DATASET_NAME)
         self.image_folder = os.path.join(self.dataset_path,'images')
         self.mask_folder = os.path.join(self.dataset_path,'masks')
         self.test_split = parameters.TEST_SPLIT
