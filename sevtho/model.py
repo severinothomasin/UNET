@@ -128,7 +128,7 @@ class DynamicUNet(nn.Module):
         conv9 = functional.relu(self.conv9_2(conv9))
 
         # Output Part of Network.
-        output = functional.sigmoid(self.conv10(conv9))
+        output = torch.sigmoid(self.conv10(conv9))
 
         return output
 

@@ -13,7 +13,7 @@ import sevtho.plot as plot
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-print(f'Device Used: {torch.cuda.get_device_name(torch.cuda.current_device())}')
+print(f'Device Used: {device}')
 print(f'Cuda Version: {torch.version.cuda}')
 print('\n')
 print('Configurations:')
@@ -25,14 +25,21 @@ print(tabulate([
     ['TRAIN', parameters.TRAIN], 
     ['LOAD_MODEL', parameters.LOAD_MODEL], 
     ['SAVE_MODEL', parameters.SAVE_MODEL], 
-    ['SAVE_INDEX', parameters.SAVE_INDEX], 
+    ['SAVE_INDEX', parameters.NEW_INDEX], 
     ['BATCH_SIZE', parameters.BATCH_SIZE]], headers=['Parameter', 'Value']))
 print('\n')
 
-model_name = f"UNet-{parameters.FILTER_LIST}.pt"
+model_name = f"{parameters.DATASET_NAME}.pt"
 
 tumor_dataset = dataset.Dataset()
-training_ids, testing_ids = tumor_dataset.get_ids(new=False)
+
+if parameters.NEW_INDEX:
+    tumor_dataset.create_new_index()
+
+if parameters.APPLY_DATASET:
+    image_ids = tumor_dataset.get_ids()
+else:
+    training_ids, testing_ids = tumor_dataset.get_ids()
 
 training_sampler = SubsetRandomSampler(training_ids)
 testing_sampler = SubsetRandomSampler(testing_ids)
@@ -40,8 +47,8 @@ testing_sampler = SubsetRandomSampler(testing_ids)
 trainloader = DataLoader(tumor_dataset, parameters.BATCH_SIZE, sampler=training_sampler)
 testloader = DataLoader(tumor_dataset, 1, sampler=testing_sampler)
 
-if parameters.LOAD_MODEL == True:
-    unet_model = model.DynamicUNet(parameters.FILTER_LIST)
+if not parameters.LOAD_MODEL:
+    unet_model = model.DynamicUNet(parameters.FILTER_LIST).to(device)
     unet_classifier = classifier.BrainTumorClassifier(unet_model,device)
 else:
     # Saved model is loaded on memory.
@@ -61,18 +68,17 @@ unet_model.eval()
 unet_score = unet_classifier.test(testloader)
 print(f'\n\nDice Score {unet_score}')
 
-save_plot = os.path.join('images',f'{model_name}-loss_graph.png')
-plot.loss_graph(unet_train_history['train_loss'],save_plot)
+if parameters.TRAIN:
+    save_plot = os.path.join('images',f'UNet-{parameters.FILTER_LIST}-loss_graph.png')
+    plot.loss_graph(unet_train_history['train_loss'],save_plot)
 
-i=0
-
-while True:
-    image_index = testing_ids[i]
+for i in range(0,4):
+    image_index = training_ids[i]
     sample = tumor_dataset[image_index]
-    image, mask, output, d_score = unet_classifier.predict(sample,0.65)
-    title = f'Name: {image_index}.png   Dice Score: {d_score:.5f}'
+    #image, mask, output, d_score = unet_classifier.predict(sample,0.65)
+    image, output = unet_classifier.predict(sample,0.65)
+    #title = f'Name: {image_index}.png   Dice Score: {d_score:.5f}'
+    title = f'Name: {image_index}.png'
     # save_path = os.path.join('images',f'{d_score:.5f}_{image_index}.png')
-    plot.result(image,mask,output,title,save_path=None)
-    i += 1
-    if i >= len(testing_ids):
-        i = 0 
+    #plot.result(image,mask,output,title,save_path=None)
+    plot.result(image,output,title,save_path=None)

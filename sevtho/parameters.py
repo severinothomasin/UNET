@@ -14,20 +14,24 @@ In Case of Questions, write an email to severino.thomasin@uzh.ch
 """
 
 # How much of your dataset should be used for testing (%)
-TEST_SPLIT = 0.3
+TEST_SPLIT = 0.2
 # Batch size for training. Limited by GPU memory
-BATCH_SIZE = 6
+BATCH_SIZE = 1
 # Dataset folder used
-DATASET_NAME = 'brain_tumors'
+DATASET_NAME = 'm1E8'
 # Training Epochs
-EPOCHS = 5000
+EPOCHS = 100
 # Filters used in UNet Model
 FILTER_LIST = [16,32,64,128,256]
 # Flag to train the model
-TRAIN = True
+TRAIN = False
 # Flag to load saved model
-LOAD_MODEL = False
+LOAD_MODEL = True
 # Flag to save model trained
-SAVE_MODEL = True
+SAVE_MODEL = False
 # Flag to save the file index
-SAVE_INDEX = True
+NEW_INDEX = True
+# Apply Model to fresh Dataset
+APPLY_DATASET = True
+# Model Name
+MODEL_NAME = 'm1E8'
