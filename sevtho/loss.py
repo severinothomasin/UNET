@@ -12,7 +12,6 @@ class DiceLoss(nn.Module):
     """
 
     def __init__(self):
-        """Simple constructor for the class."""
         super(DiceLoss, self).__init__()
 
     def forward(self, predicted, target):

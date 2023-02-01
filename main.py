@@ -3,84 +3,148 @@ import os
 import torch
 from torch.utils.data import SubsetRandomSampler, DataLoader
 
-from tabulate import tabulate
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
 
-import sevtho.parameters as parameters 
-import sevtho.dataset as dataset
-import sevtho.model as model
-import sevtho.classifier as classifier
-import sevtho.plot as plot
+import sevtho.dataset
+import sevtho.model 
+import sevtho.classifier
+
+import UNET_PARAMETERS as param
+
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+dataset = sevtho.dataset.Dataset()
 
-model_name = f"{parameters.MODEL_NAME}.pt"
+if param.NEW_INDEX:
 
-tumor_dataset = dataset.Dataset()
+    dataset.create_new_index()
 
-if parameters.NEW_INDEX:
-    tumor_dataset.create_new_index()
 
-if parameters.APPLY_DATASET:
+if param.PREDICT:
 
-    image_ids = tumor_dataset.get_ids()
+    image_ids = dataset.get_ids()
     image_sampler = SubsetRandomSampler(image_ids)
-    image_loader = DataLoader(tumor_dataset, parameters.BATCH_SIZE, sampler=image_sampler)
+    image_loader = DataLoader(dataset, param.BATCH_SIZE, sampler=image_sampler)
 
-    unet_model = model.DynamicUNet(parameters.FILTER_LIST)
-    unet_classifier = classifier.BrainTumorClassifier(unet_model,device)
-    unet_classifier.restore_model(os.path.join('saved_models',model_name))
-    print('Saved model loaded')    
+    unet_model = sevtho.model.DynamicUNet(param.FILTER_LIST)
+    unet_classifier = sevtho.classifier.Classifier(unet_model, device)
+    unet_classifier.restore_model(os.path.join('saved_models',f'{param.MODEL_NAME}.pt'))
 
-    for i in range(0,10):
-        image_index = image_ids[i]
-        sample = tumor_dataset[image_index]
-        image, output = unet_classifier.predict(sample,0.65)
-        title = f'Name: {image_index}.png'
-        plot.result(image,output,title,save_path=None)
+    for i in range(0, 5):
+        sample = dataset[image_ids[i]]
+        image, output = unet_classifier.predict(sample, 0.65)
+
+        title = f'Name: {image_ids[i]}.png'
+        transparency = 0.38
+
+        seg_output = output * transparency
+        seg_image = np.add(image, seg_output) / 2
+
+        f, axarr = plt.subplots(nrows=1,ncols=3,sharex=True, sharey=True, figsize=(20, 15), gridspec_kw={'wspace': 0.025, 'hspace': 0.010})
+        f.suptitle(title, x=0.5, y=0.92, fontsize=20)
+
+        plt.sca(axarr[0]); 
+        plt.imshow(image, cmap='gray'); 
+        plt.title("Original Image", fontdict={'fontsize': 16})
+        plt.sca(axarr[1]); 
+        plt.imshow(output, cmap='Blues'); 
+        plt.title("Constructed Mask", fontdict={'fontsize': 16})
+        plt.sca(axarr[2]); 
+        plt.imshow(seg_image, cmap='gray'); 
+        plt.title("Constructed Segment", fontdict={'fontsize': 16})
+        plt.show()
 
 else:
-    training_ids, testing_ids = tumor_dataset.get_ids()
+
+    training_ids, testing_ids = dataset.get_ids()
 
     training_sampler = SubsetRandomSampler(training_ids)
+    training_loader = DataLoader(dataset, param.BATCH_SIZE, sampler=training_sampler)
+
     testing_sampler = SubsetRandomSampler(testing_ids)
+    testing_loader = DataLoader(dataset, 1, sampler=testing_sampler)
 
-    trainloader = DataLoader(tumor_dataset, parameters.BATCH_SIZE, sampler=training_sampler)
-    testloader = DataLoader(tumor_dataset, 1, sampler=testing_sampler)
-
-    if not parameters.LOAD_MODEL:
-        unet_model = model.DynamicUNet(parameters.FILTER_LIST).to(device)
-        unet_classifier = classifier.BrainTumorClassifier(unet_model,device)
+    if param.LOAD_MODEL:
+        unet_model = sevtho.model.DynamicUNet(param.FILTER_LIST)
+        unet_classifier = sevtho.classifier.Classifier(unet_model, device)
+        unet_classifier.restore_model(os.path.join('saved_models',f'{param.MODEL_NAME}.pt'))
+        print(f'Saved model {param.MODEL_NAME} loaded')         
     else:
-        # Saved model is loaded on memory.
-        unet_model = model.DynamicUNet(parameters.FILTER_LIST)
-        unet_classifier = classifier.BrainTumorClassifier(unet_model,device)
-        unet_classifier.restore_model(os.path.join('saved_models',model_name))
-        print('Saved model loaded')    
+        unet_model = sevtho.model.DynamicUNet(param.FILTER_LIST).to(device)
+        unet_classifier = sevtho.classifier.Classifier(unet_model, device)
+        print(f'New model {param.MODEL_NAME} created')   
 
-    if parameters.TRAIN:
+    if param.TRAIN_MODEL:
         unet_model.train()
-        path = os.path.join('saved_models',model_name) if parameters.SAVE_MODEL else None
-        unet_train_history = unet_classifier.train(parameters.EPOCHS,trainloader,mini_batch=100,save_best=path)
-        print(f'Training Finished after {parameters.EPOCHS} epoches')
 
-    # Testing process on test data.
-    unet_model.eval()
-    unet_score = unet_classifier.test(testloader)
-    print(f'\n\nDice Score {unet_score}')
+        path = None
+        if param.SAVE_MODEL:
+            path = os.path.join('saved_models',f'{param.MODEL_NAME}.pt')
 
-    if parameters.TRAIN:
-        save_plot = os.path.join('images',f'UNet-{parameters.FILTER_LIST}-loss_graph.png')
-        plot.loss_graph(unet_train_history['train_loss'],save_plot)
+        unet_train_history = unet_classifier.train(param.EPOCHS, training_loader, mini_batch=100, save_best=path)
+        print(f'Training Finished after {param.EPOCHS} epoches')
 
+        save_plot = os.path.join('images',f'UNet-{param.MODEL_NAME}-loss_graph.png')        
+        plt.figure(figsize=(20, 10))
+        plt.title('Loss Function Over Epoch')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss Value')
+        line = plt.plot(unet_train_history['train_loss'], marker='o')
+        plt.legend((line), ('Loss Value',), loc=1)
+        plt.savefig(save_plot)
+        plt.show()
+    
     i=0
 
     while True:
         image_index = testing_ids[i]
-        sample = tumor_dataset[image_index]
+        sample = dataset[image_index]
         image, mask, output, d_score = unet_classifier.predict(sample,0.65)
         title = f'Name: {image_index}.png   Dice Score: {d_score:.5f}'
         # save_path = os.path.join('images',f'{d_score:.5f}_{image_index}.png')
-        plot.result(image,output,title,save_path=None,mask=mask)
+        transparency=0.38
+        fig, axs = plt.subplots(2, 3, sharex=True, sharey=True, figsize=(
+            20, 15), gridspec_kw={'wspace': 0.025, 'hspace': 0.010})
+        fig.suptitle(title, x=0.5, y=0.92, fontsize=20)
+
+        axs[0][0].set_title("Original Mask", fontdict={'fontsize': 16})
+        axs[0][0].imshow(mask, cmap='gray')
+        axs[0][0].set_axis_off()
+
+        axs[0][1].set_title("Constructed Mask", fontdict={'fontsize': 16})
+        axs[0][1].imshow(output, cmap='gray')
+        axs[0][1].set_axis_off()
+
+        mask_diff = np.abs(np.subtract(mask, output))
+        axs[0][2].set_title("Mask Difference", fontdict={'fontsize': 16})
+        axs[0][2].imshow(mask_diff, cmap='gray')
+        axs[0][2].set_axis_off()
+
+        seg_output = mask*transparency
+        seg_image = np.add(image, seg_output)/2
+        axs[1][0].set_title("Original Segment", fontdict={'fontsize': 16})
+        axs[1][0].imshow(seg_image, cmap='gray')
+        axs[1][0].set_axis_off()
+
+        seg_output = output*transparency
+        seg_image = np.add(image, seg_output)/2
+        axs[1][1].set_title("Constructed Segment", fontdict={'fontsize': 16})
+        axs[1][1].imshow(seg_image, cmap='gray')
+        axs[1][1].set_axis_off()
+
+        axs[1][2].set_title("Original Image", fontdict={'fontsize': 16})
+        axs[1][2].imshow(image, cmap='gray')
+        axs[1][2].set_axis_off()
+
+        plt.tight_layout()
+
+        save_path = os.path.join('images/examples', param.DATASET_NAME)
+        plt.savefig(save_path, dpi=90, bbox_inches='tight')
+
+        plt.show()        
         i += 1
         if i >= len(testing_ids):
             i = 0 
+

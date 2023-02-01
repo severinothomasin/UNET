@@ -20,12 +20,6 @@ class DynamicUNet(nn.Module):
     """
 
     def __init__(self, filters, input_channels=1, output_channels=1):
-        """ Constructor for UNet class.
-        Parameters:
-            filters(list): Five filter values for the network.
-            input_channels(int): Input channels for the network. Default: 1
-            output_channels(int): Output channels for the final network. Default: 1
-        """
 
         super(DynamicUNet, self).__init__()
 
@@ -77,15 +71,8 @@ class DynamicUNet(nn.Module):
         # Output Part of Network.
         self.conv10 = nn.Conv2d(filters[0], output_channels, kernel_size=ks, padding=padding)
 
-    def forward(self, x):
-        """ Method for forward propagation in the network.
-        Parameters:
-            x(torch.Tensor): Input for the network of size (1, 512, 512).
 
-        Returns:
-            output(torch.Tensor): Output after the forward propagation 
-                                    of network on the input.
-        """
+    def forward(self, x):
 
         # Encoding Part of Network.
         #   Block 1
@@ -132,27 +119,7 @@ class DynamicUNet(nn.Module):
 
         return output
 
+
     def summary(self, input_size=(1, 512, 512), batch_size=-1, device='cuda'):
-        """ Get the summary of the network in a chart like form
-        with name of layer size of the inputs and parameters 
-        and some extra memory details.
-        This method uses the torchsummary package.
-        For more information check the link.
-        Link :- https://github.com/sksq96/pytorch-summary
 
-        Parameters:
-            input_size(tuple): Size of the input for the network in
-                                 format (Channel, Width, Height).
-                                 Default: (1,512,512)
-            batch_size(int): Batch size for the network.
-                                Default: -1
-            device(str): Device on which the network is loaded.
-                            Device can be 'cuda' or 'cpu'.
-                            Default: 'cuda'
-
-        Returns:
-            A printed output for IPython Notebooks.
-            Table with 3 columns for Layer Name, Input Size and Parameters.
-            torchsummary.summary() method is used.
-        """
         return torchsummary.summary(self, input_size, batch_size, device)
